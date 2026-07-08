@@ -53,6 +53,7 @@ final class WorktreeTerminalState {
   private struct SurfaceLaunchMetadata {
     let usesZmx: Bool
     let context: ghostty_surface_context_e
+    let externalZmxSessionID: String?
   }
 
   let tabManager: TerminalTabManager
@@ -422,9 +423,12 @@ final class WorktreeTerminalState {
     restorePendingLayoutIfNeeded(focusing: false)
     let terminalTabID = TerminalTabID(rawValue: requestedTabID)
     if hasTab(terminalTabID) {
-      if let title { tabManager.setCustomTitle(terminalTabID, title: title) }
-      if focusing { selectTab(terminalTabID) }
-      return terminalTabID
+      if externalZmxSessionID(in: terminalTabID) == sessionID {
+        if let title { tabManager.setCustomTitle(terminalTabID, title: title) }
+        if focusing { selectTab(terminalTabID) }
+        return terminalTabID
+      }
+      closeTab(terminalTabID)
     }
     let resolvedTitle: String
     if let trimmedTitle = title?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmedTitle.isEmpty {
@@ -444,6 +448,7 @@ final class WorktreeTerminalState {
         context: tabManager.tabs.isEmpty ? GHOSTTY_SURFACE_CONTEXT_WINDOW : GHOSTTY_SURFACE_CONTEXT_TAB,
         tabID: requestedTabID,
         bypassZmx: true,
+        externalZmxSessionID: sessionID,
       )
     )
     if let tabId, let title {
@@ -612,6 +617,7 @@ final class WorktreeTerminalState {
     /// Skip zmx session wrapping for transactional surfaces (blocking setup/archive/delete scripts)
     /// that must die with the app rather than survive.
     var bypassZmx: Bool = false
+    var externalZmxSessionID: String? = nil
   }
 
   private func createTab(_ creation: TabCreation) -> TerminalTabID? {
@@ -638,7 +644,8 @@ final class WorktreeTerminalState {
       initialInput: creation.initialInput,
       context: creation.context,
       surfaceID: creation.tabID != nil ? tabId.rawValue : nil,
-      bypassZmx: creation.bypassZmx
+      bypassZmx: creation.bypassZmx,
+      externalZmxSessionID: creation.externalZmxSessionID,
     )
     updateShouldHideTabBar()
     if creation.focusing, let surface = tree.root?.leftmostLeaf() {
@@ -664,6 +671,15 @@ final class WorktreeTerminalState {
       if surfaceID == focusedID { entry["focused"] = "1" }
       return entry
     }.sorted { ($0["id"] ?? "") < ($1["id"] ?? "") }
+  }
+
+  private func externalZmxSessionID(in tabID: TerminalTabID) -> String? {
+    for surfaceID in surfaceIDs(inTab: tabID) {
+      if let sessionID = surfaceLaunchMetadata[surfaceID]?.externalZmxSessionID {
+        return sessionID
+      }
+    }
+    return nil
   }
 
   func hasTab(_ tabId: TerminalTabID) -> Bool {
@@ -947,7 +963,8 @@ final class WorktreeTerminalState {
     initialInput: String? = nil,
     context: ghostty_surface_context_e = GHOSTTY_SURFACE_CONTEXT_TAB,
     surfaceID: UUID? = nil,
-    bypassZmx: Bool = false
+    bypassZmx: Bool = false,
+    externalZmxSessionID: String? = nil
   ) -> SplitTree<GhosttySurfaceView> {
     if let existing = trees[tabId] {
       return existing
@@ -963,7 +980,8 @@ final class WorktreeTerminalState {
       inheritingFromSurfaceId: inheritingFromSurfaceId,
       context: context,
       surfaceID: surfaceID,
-      bypassZmx: bypassZmx
+      bypassZmx: bypassZmx,
+      externalZmxSessionID: externalZmxSessionID
     )
     let tree = SplitTree(view: surface)
     setTree(tree, for: tabId)
@@ -1664,6 +1682,7 @@ final class WorktreeTerminalState {
     context: ghostty_surface_context_e,
     surfaceID: UUID? = nil,
     bypassZmx: Bool = false,
+    externalZmxSessionID: String? = nil,
     replacingExistingSurfaceID: Bool = false,
   ) -> GhosttySurfaceView {
     let resolvedID: UUID
@@ -1709,7 +1728,11 @@ final class WorktreeTerminalState {
     )
     wireSurfaceCallbacks(view: view, tabId: tabId)
     surfaces[view.id] = view
-    surfaceLaunchMetadata[view.id] = SurfaceLaunchMetadata(usesZmx: launch.usesZmx, context: context)
+    surfaceLaunchMetadata[view.id] = SurfaceLaunchMetadata(
+      usesZmx: launch.usesZmx,
+      context: context,
+      externalZmxSessionID: externalZmxSessionID
+    )
     surfaceStates[view.id] = WorktreeSurfaceState()
     return view
   }

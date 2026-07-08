@@ -2359,7 +2359,7 @@ struct AppFeature {
         effect, match: .tabRenamed(worktreeID: worktreeID, tabID: TerminalTabID(rawValue: tabID)),
         responseFD: responseFD, timeoutSeconds: timeoutSeconds, state: &state)
     case .tabAdoptZmx(let sessionID, let title, let id):
-      guard ZmxExternalSessionName.normalized(sessionID) != nil else {
+      guard let sessionID = ZmxExternalSessionName.normalized(sessionID) else {
         state.alert = AlertState {
           TextState("Invalid zmx session")
         } actions: {
