@@ -79,7 +79,9 @@ final class TerminalTabManager {
   @discardableResult
   func setCustomTitle(_ id: TerminalTabID, title: String) -> Bool {
     guard let index = renamableTabIndex(id) else { return false }
-    tabs[index].customTitle = Self.normalizedCustomTitle(title)
+    let customTitle = Self.normalizedCustomTitle(title)
+    guard tabs[index].customTitle != customTitle else { return true }
+    tabs[index].customTitle = customTitle
     return true
   }
 

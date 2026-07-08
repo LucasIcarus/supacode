@@ -44,6 +44,7 @@ struct TerminalClient {
       id: UUID? = nil,
       title: String? = nil
     )
+    case adoptZmxSession(Worktree, sessionID: String, title: String?, id: UUID)
     case ensureInitialTab(Worktree, runSetupScriptIfNew: Bool, focusing: Bool)
     case stopRunScript(Worktree)
     case stopScript(Worktree, definitionID: UUID)
