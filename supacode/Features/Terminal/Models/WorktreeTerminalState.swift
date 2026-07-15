@@ -617,7 +617,7 @@ final class WorktreeTerminalState {
     /// Skip zmx session wrapping for transactional surfaces (blocking setup/archive/delete scripts)
     /// that must die with the app rather than survive.
     var bypassZmx: Bool = false
-    var externalZmxSessionID: String? = nil
+    var externalZmxSessionID: String?
   }
 
   private func createTab(_ creation: TabCreation) -> TerminalTabID? {
